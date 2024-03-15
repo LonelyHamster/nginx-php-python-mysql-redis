@@ -1,0 +1,83 @@
+services:
+  openresty:
+    image: bitnami/openresty:latest
+    container_name: hamster-nginx
+    restart: always
+    depends_on:
+      - php
+      - mysql
+      - redis
+      - python
+    volumes:
+      - ./openresty/html:/var/www/html
+      - ./openresty/conf.d:/opt/bitnami/openresty/nginx/conf/server_blocks
+    environment:
+      - TZ=Asia/Shanghai
+    ports:
+      - "80:80"
+      - "8080:8080"
+    networks:
+      - myweb
+
+  php:
+    image: php:swoole
+    container_name: hamster-php
+    restart: always
+    volumes:
+      - ./openresty/html:/var/www/html
+    environment:
+      - TZ=Asia/Shanghai
+    networks:
+      - myweb
+
+  python:
+    image: python:flask
+    container_name: hamster-python
+    restart: always
+    volumes:
+      - ./python:/app
+    command: 'uwsgi --ini /app/uwsgi.ini'
+    ports:
+      - "8000:8000"
+    networks:
+      - myweb
+
+  redis:
+    image: redis:7.2.3-alpine3.18
+    container_name: hamster-redis
+    restart: always
+    environment:
+      - vm.overcommit_memory=1
+    ports:
+      - "6379:6379"
+    networks:
+      - myweb
+
+  mysql:
+    image: mysql:8.2.0
+    container_name: hamster-mysql
+    command: '--default-authentication-plugin=mysql_native_password'
+    restart: always
+    secrets:
+      - mysql-password
+    volumes:
+      - ./mysql/data:/var/lib/mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD_FILE=/run/secrets/mysql-password
+      - MYSQL_DATABASE=test
+      - MYSQL_USER=test_user
+      - MYSQL_PASSWORD=test_password
+    ports:
+      - "3306:3306"
+    networks:
+      - myweb
+
+
+networks:
+  myweb:
+    name: hamster-web
+    driver: bridge
+
+secrets:
+  mysql-password:
+    file: mysql/password.txt
